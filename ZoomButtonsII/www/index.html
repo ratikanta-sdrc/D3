@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width">
+    <title></title>
+
+    <link href="lib/ionic/css/ionic.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <style>
+
+svg {
+  background: #eee;
+}
+
+.sphere {
+  fill: #fff;
+}
+
+.land {
+  fill: #000;
+}
+
+.boundary {
+  fill: none;
+  stroke: #fff;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.overlay {
+  fill: none;
+  pointer-events: all;
+}
+
+</style>
+
+    <!-- IF using Sass (run gulp sass first), then uncomment below and remove the CSS includes above
+    <link href="css/ionic.app.css" rel="stylesheet">
+    -->
+
+    <!-- ionic/angularjs js -->
+    <script src="lib/ionic/js/ionic.bundle.js"></script>
+
+    <!-- cordova script (this will be a 404 during development) -->
+    <script src="cordova.js"></script>
+    <script src="js/d3.v3.min.js"></script>
+    <script src="js/topojson.v1.min.js"></script>
+    <!-- your app's js -->
+    <script src="js/app.js"></script>
+  </head>
+  <body ng-app="starter">
+
+    <script>
+
+var width = 300,
+    height = 500,
+    center = [width / 2, height / 2];
+
+var projection = d3.geo.mercator()
+    .translate([width / 2, height / 2])
+    .scale((width - 1) / 2 / Math.PI);
+
+var zoom = d3.behavior.zoom()
+    .scaleExtent([1, 8])
+    .on("zoom", zoomed);
+
+var path = d3.geo.path()
+    .projection(projection);
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+  .append("g");
+
+var g = svg.append("g");
+
+svg.append("rect")
+    .attr("class", "overlay")
+    .attr("width", width)
+    .attr("height", height);
+
+svg
+    .call(zoom)
+    .call(zoom.event);
+
+d3.json("world-50m.json", function(error, world) {
+  g.append("path")
+      .datum({type: "Sphere"})
+      .attr("class", "sphere")
+      .attr("d", path);
+
+  g.append("path")
+      .datum(topojson.merge(world, world.objects.countries.geometries))
+      .attr("class", "land")
+      .attr("d", path);
+
+  g.append("path")
+      .datum(topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; }))
+      .attr("class", "boundary")
+      .attr("d", path);
+});
+
+function zoomed() {
+  g.attr("transform", "translate(" + zoom.translate() + ")scale(" + zoom.scale() + ")");
+}
+
+d3.select(self.frameElement).style("height", height + "px");
+
+// Simplest possible buttons
+svg.selectAll(".button")
+    .data(['zoom_in', 'zoom_out'])
+    .enter()
+    .append("rect")
+    .attr("x", function(d,i){return 10 + 50*i})
+    .attr({y: 10, width: 40, height: 20, class: "button"})
+    .attr("id", function(d){return d})
+    .style("fill", function(d,i){ return i ? "red" : "green"})
+
+var intervalID;
+
+d3.selectAll('.button').on('mousedown', function(){
+    d3.event.preventDefault();
+    var factor = (this.id === 'zoom_in') ? 1.1 : 1/1.1;
+    intervalID = setInterval(zoom_by, 40, factor);
+}).on('mouseup', function(){
+    d3.event.preventDefault();
+    clearInterval(intervalID);
+    intervalID = undefined;
+})
+
+function zoom_by(factor){
+    var scale = zoom.scale(),
+        extent = zoom.scaleExtent(),
+        translate = zoom.translate(),
+        x = translate[0], y = translate[1],
+        target_scale = scale * factor;
+
+    // If we're already at an extent, done
+    if (target_scale === extent[0] || target_scale === extent[1]) { return false; }
+    // If the factor is too much, scale it down to reach the extent exactly
+    var clamped_target_scale = Math.max(extent[0], Math.min(extent[1], target_scale));
+    if (clamped_target_scale != target_scale){
+        target_scale = clamped_target_scale;
+        factor = target_scale / scale;
+    }
+
+    // Center each vector, stretch, then put back
+    x = (x - center[0]) * factor + center[0];
+    y = (y - center[1]) * factor + center[1];
+
+    // Enact the zoom immediately
+    zoom.scale(target_scale)
+        .translate([x,y]);
+    zoomed();
+}
+
+</script>
+  </body>
+</html>
